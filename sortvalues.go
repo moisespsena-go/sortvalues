@@ -3,6 +3,7 @@ package sortvalues
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -86,6 +87,7 @@ type Values struct {
 	Anonymous         Slice
 	DuplicationType   DuplicationType
 	AnonymousPriority bool
+	mu                sync.Mutex
 }
 
 func NewValues(duplicationType ...DuplicationType) *Values {
@@ -96,6 +98,8 @@ func NewValues(duplicationType ...DuplicationType) *Values {
 }
 
 func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
 	if vs.Named == nil {
 		vs.Named = map[string]int{}
 	}
@@ -126,6 +130,9 @@ func (vs *Values) Append(v ...*Value) error {
 }
 
 func (vs *Values) Sort() (values Slice, err error) {
+	vs.mu.Lock()
+	defer vs.mu.Unlock()
+
 	notFound := make(map[string][]string)
 
 	graph := topsort.NewGraph()
