@@ -1,15 +1,3 @@
-# sortvalues
-Provide sorter for named and anonymous values using topological sorter alghorithm.
-
-## Installation
-
-```bash
-go get -u github.com/moisespsena-go/sortvalues
-```
-
-## Example
-
-```go
 package main
 
 import (
@@ -33,12 +21,3 @@ func main() {
 	sorted, err := vs.Sort()
 	fmt.Println(err, sorted.Values())
 }
-```
-
-Output:
-
-    <nil> [anony b c a]
-    
-
-
-
