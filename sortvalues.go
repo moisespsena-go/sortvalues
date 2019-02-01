@@ -36,7 +36,7 @@ type ErrDuplicate struct {
 }
 
 func (e ErrDuplicate) Error() string {
-	return fmt.Sprintf("Duplicate value %q: %s", e.Value.Name, e.Value.Value)
+	return fmt.Sprintf("Duplicate value %q: %s", e.Value.name, e.Value.value)
 }
 
 var ErrUnamed = errors.New("Unnamed value")
@@ -46,14 +46,14 @@ type Slice []*Value
 func (s Slice) Values() []interface{} {
 	values := make([]interface{}, len(s))
 	for i, v := range s {
-		values[i] = v.Value
+		values[i] = v.value
 	}
 	return values
 }
 
 type Value struct {
-	Value       interface{}
-	Name        string
+	value       interface{}
+	name        string
 	BeforeNames []string
 	AfterNames  []string
 }
@@ -62,19 +62,27 @@ func NewValue(value interface{}, name ...string) *Value {
 	if len(name) == 0 {
 		name = make([]string, 1)
 	}
-	return &Value{Value: value, Name: name[0]}
+	return &Value{value: value, name: name[0]}
 }
 
-func (v *Value) Before(name ...string) *Value {
-	if v.Name == "" {
+func (v *Value) Value() interface{} {
+	return v.value
+}
+
+func (v *Value) Name() string {
+	return v.name
+}
+
+func (v *Value) Before(name ...string) ValueInterface {
+	if v.name == "" {
 		panic(ErrUnamed)
 	}
 	v.BeforeNames = append(v.BeforeNames, name...)
 	return v
 }
 
-func (v *Value) After(name ...string) *Value {
-	if v.Name == "" {
+func (v *Value) After(name ...string) ValueInterface {
+	if v.name == "" {
 		panic(ErrUnamed)
 	}
 	v.AfterNames = append(v.AfterNames, name...)
@@ -105,9 +113,9 @@ func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
 	}
 
 	for _, v := range v {
-		if v.Name == "" {
+		if v.name == "" {
 			vs.Anonymous = append(vs.Anonymous, v)
-		} else if i, ok := vs.Named[v.Name]; ok {
+		} else if i, ok := vs.Named[v.name]; ok {
 			switch dt {
 			case DUPLICATION_OVERRIDE:
 				vs.NamedSlice[i] = v
@@ -118,7 +126,7 @@ func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
 				return fmt.Errorf("Invalid duplication type %d", dt)
 			}
 		} else {
-			vs.Named[v.Name] = len(vs.NamedSlice)
+			vs.Named[v.name] = len(vs.NamedSlice)
 			vs.NamedSlice = append(vs.NamedSlice, v)
 		}
 	}
@@ -138,28 +146,28 @@ func (vs *Values) Sort() (values Slice, err error) {
 	graph := topsort.NewGraph()
 
 	for _, v := range vs.NamedSlice {
-		graph.AddNode(v.Name)
+		graph.AddNode(v.name)
 	}
 
 	for _, v := range vs.NamedSlice {
 		for _, to := range v.BeforeNames {
 			if _, ok := vs.Named[to]; ok {
-				_ = graph.AddEdge(v.Name, to)
+				_ = graph.AddEdge(v.name, to)
 			} else {
-				if _, ok := notFound[v.Name]; !ok {
-					notFound[v.Name] = make([]string, 1)
+				if _, ok := notFound[v.name]; !ok {
+					notFound[v.name] = make([]string, 1)
 				}
-				notFound[v.Name] = append(notFound[v.Name], to)
+				notFound[v.name] = append(notFound[v.name], to)
 			}
 		}
 		for _, from := range v.AfterNames {
 			if _, ok := vs.Named[from]; ok {
-				graph.AddEdge(from, v.Name)
+				graph.AddEdge(from, v.name)
 			} else {
-				if _, ok := notFound[v.Name]; ok {
-					notFound[v.Name] = make([]string, 1)
+				if _, ok := notFound[v.name]; ok {
+					notFound[v.name] = make([]string, 1)
 				}
-				notFound[v.Name] = append(notFound[v.Name], from)
+				notFound[v.name] = append(notFound[v.name], from)
 			}
 		}
 	}
