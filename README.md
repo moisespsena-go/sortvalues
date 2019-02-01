@@ -20,7 +20,13 @@ import (
 
 func main() {
 	vs := sortvalues.NewValues()
-	vs.AnonymousPriority = true
+
+	// vs.AnonymousPriority = true // default is false
+
+	// vs.DuplicationType = sortvalues.DUPLICATION_ABORT        // default
+	//                   or sortvalues.DUPLICATION_OVERRIDE
+	//                   or sortvalues.DUPLICATION_SKIP
+
 	vs.Append(
 		sortvalues.NewValue("anonymou"),
 		sortvalues.NewValue("a", "A"),
@@ -37,7 +43,7 @@ func main() {
 
 Output:
 
-    <nil> [anony b c a]
+    <nil> [b c d a anonymou]
     
 
 
