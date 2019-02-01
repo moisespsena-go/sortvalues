@@ -92,10 +92,14 @@ func NewValues(duplicationType ...DuplicationType) *Values {
 	if len(duplicationType) == 0 {
 		duplicationType = make([]DuplicationType, 1)
 	}
-	return &Values{DuplicationType: duplicationType[0], Named: map[string]int{}}
+	return &Values{DuplicationType: duplicationType[0]}
 }
 
 func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
+	if vs.Named == nil {
+		vs.Named = map[string]int{}
+	}
+
 	for _, v := range v {
 		if v.Name == "" {
 			vs.Anonymous = append(vs.Anonymous, v)
