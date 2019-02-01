@@ -19,7 +19,7 @@ import (
 )
 
 func main() {
-	vs := sortvalues.NewValues()
+	var s sortvalues.Sorter
 
 	// vs.AnonymousPriority = true // default is false
 
@@ -27,7 +27,7 @@ func main() {
 	//                   or sortvalues.DUPLICATION_OVERRIDE
 	//                   or sortvalues.DUPLICATION_SKIP
 
-	err := vs.Append(
+	err := s.Append(
 		sortvalues.NewValue("anonymou"),
 		sortvalues.NewValue("a", "A"),
 		sortvalues.NewValue("b", "B"),
@@ -41,7 +41,7 @@ func main() {
 		return
 	}
 
-	sorted, err := vs.Sort()
+	sorted, err := s.Sort()
 	if err != nil {
 		fmt.Println("sort failed: %v", err)
 		return

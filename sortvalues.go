@@ -32,30 +32,30 @@ func (dt DuplicationType) String() string {
 }
 
 type ErrDuplicate struct {
-	Value *Value
+	Value ValueInterface
 }
 
 func (e ErrDuplicate) Error() string {
-	return fmt.Sprintf("Duplicate value %q: %s", e.Value.name, e.Value.value)
+	return fmt.Sprintf("Duplicate value %q: %s", e.Value.Name(), e.Value.Value())
 }
 
 var ErrUnamed = errors.New("Unnamed value")
 
-type Slice []*Value
+type Slice []ValueInterface
 
 func (s Slice) Values() []interface{} {
 	values := make([]interface{}, len(s))
 	for i, v := range s {
-		values[i] = v.value
+		values[i] = v.Value()
 	}
 	return values
 }
 
 type Value struct {
-	value       interface{}
-	name        string
-	BeforeNames []string
-	AfterNames  []string
+	value      interface{}
+	name       string
+	afterNames []string
+	after      []string
 }
 
 func NewValue(value interface{}, name ...string) *Value {
@@ -73,23 +73,31 @@ func (v *Value) Name() string {
 	return v.name
 }
 
+func (v *Value) GetBefore() []string {
+	return v.afterNames
+}
+
+func (v *Value) GetAfter() []string {
+	return v.after
+}
+
 func (v *Value) Before(name ...string) ValueInterface {
-	if v.name == "" {
+	if v.Name() == "" {
 		panic(ErrUnamed)
 	}
-	v.BeforeNames = append(v.BeforeNames, name...)
+	v.afterNames = append(v.afterNames, name...)
 	return v
 }
 
 func (v *Value) After(name ...string) ValueInterface {
-	if v.name == "" {
+	if v.Name() == "" {
 		panic(ErrUnamed)
 	}
-	v.AfterNames = append(v.AfterNames, name...)
+	v.after = append(v.after, name...)
 	return v
 }
 
-type Values struct {
+type Sorter struct {
 	Named             map[string]int
 	NamedSlice        Slice
 	Anonymous         Slice
@@ -98,27 +106,27 @@ type Values struct {
 	mu                sync.Mutex
 }
 
-func NewValues(duplicationType ...DuplicationType) *Values {
+func New(duplicationType ...DuplicationType) *Sorter {
 	if len(duplicationType) == 0 {
 		duplicationType = make([]DuplicationType, 1)
 	}
-	return &Values{DuplicationType: duplicationType[0]}
+	return &Sorter{DuplicationType: duplicationType[0]}
 }
 
-func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
-	if vs.Named == nil {
-		vs.Named = map[string]int{}
+func (s *Sorter) AppendOption(dt DuplicationType, v ...ValueInterface) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.Named == nil {
+		s.Named = map[string]int{}
 	}
 
 	for _, v := range v {
-		if v.name == "" {
-			vs.Anonymous = append(vs.Anonymous, v)
-		} else if i, ok := vs.Named[v.name]; ok {
+		if v.Name() == "" {
+			s.Anonymous = append(s.Anonymous, v)
+		} else if i, ok := s.Named[v.Name()]; ok {
 			switch dt {
 			case DUPLICATION_OVERRIDE:
-				vs.NamedSlice[i] = v
+				s.NamedSlice[i] = v
 			case DUPLICATION_ABORT:
 				return &ErrDuplicate{v}
 			case DUPLICATION_SKIP:
@@ -126,48 +134,48 @@ func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
 				return fmt.Errorf("Invalid duplication type %d", dt)
 			}
 		} else {
-			vs.Named[v.name] = len(vs.NamedSlice)
-			vs.NamedSlice = append(vs.NamedSlice, v)
+			s.Named[v.Name()] = len(s.NamedSlice)
+			s.NamedSlice = append(s.NamedSlice, v)
 		}
 	}
 	return nil
 }
 
-func (vs *Values) Append(v ...*Value) error {
-	return vs.AppendOption(vs.DuplicationType, v...)
+func (s *Sorter) Append(v ...ValueInterface) error {
+	return s.AppendOption(s.DuplicationType, v...)
 }
 
-func (vs *Values) Sort() (values Slice, err error) {
-	vs.mu.Lock()
-	defer vs.mu.Unlock()
+func (s *Sorter) Sort() (values Slice, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	notFound := make(map[string][]string)
 
 	graph := topsort.NewGraph()
 
-	for _, v := range vs.NamedSlice {
-		graph.AddNode(v.name)
+	for _, v := range s.NamedSlice {
+		graph.AddNode(v.Name())
 	}
 
-	for _, v := range vs.NamedSlice {
-		for _, to := range v.BeforeNames {
-			if _, ok := vs.Named[to]; ok {
-				_ = graph.AddEdge(v.name, to)
+	for _, v := range s.NamedSlice {
+		for _, to := range v.GetBefore() {
+			if _, ok := s.Named[to]; ok {
+				_ = graph.AddEdge(v.Name(), to)
 			} else {
-				if _, ok := notFound[v.name]; !ok {
-					notFound[v.name] = make([]string, 1)
+				if _, ok := notFound[v.Name()]; !ok {
+					notFound[v.Name()] = make([]string, 1)
 				}
-				notFound[v.name] = append(notFound[v.name], to)
+				notFound[v.Name()] = append(notFound[v.Name()], to)
 			}
 		}
-		for _, from := range v.AfterNames {
-			if _, ok := vs.Named[from]; ok {
-				graph.AddEdge(from, v.name)
+		for _, from := range v.GetAfter() {
+			if _, ok := s.Named[from]; ok {
+				graph.AddEdge(from, v.Name())
 			} else {
-				if _, ok := notFound[v.name]; ok {
-					notFound[v.name] = make([]string, 1)
+				if _, ok := notFound[v.Name()]; ok {
+					notFound[v.Name()] = make([]string, 1)
 				}
-				notFound[v.name] = append(notFound[v.name], from)
+				notFound[v.Name()] = append(notFound[v.Name()], from)
 			}
 		}
 	}
@@ -177,7 +185,7 @@ func (vs *Values) Sort() (values Slice, err error) {
 		for n, items := range notFound {
 			msgs = append(msgs, fmt.Sprintf("Required by %q: %v.", n, strings.Join(items, ", ")))
 		}
-		panic(fmt.Errorf("Values dependency error:\n - %v\n", strings.Join(msgs, "\n - ")))
+		panic(fmt.Errorf("Sorter dependency error:\n - %v\n", strings.Join(msgs, "\n - ")))
 	}
 
 	names, err := graph.DepthFirst()
@@ -186,32 +194,32 @@ func (vs *Values) Sort() (values Slice, err error) {
 		panic(fmt.Errorf("Topological values sorter error: %v", err))
 	}
 
-	values = make(Slice, len(vs.Anonymous)+len(vs.NamedSlice))
+	values = make(Slice, len(s.Anonymous)+len(s.NamedSlice))
 	var i int
 
-	if vs.AnonymousPriority {
-		vs.addAnonymousTo(values)
-		i = len(vs.Anonymous)
+	if s.AnonymousPriority {
+		s.addAnonymousTo(values)
+		i = len(s.Anonymous)
 	}
 
-	vs.addNamedTo(values[i:], names)
+	s.addNamedTo(values[i:], names)
 	i += len(names)
 
-	if !vs.AnonymousPriority {
-		vs.addAnonymousTo(values[i:])
+	if !s.AnonymousPriority {
+		s.addAnonymousTo(values[i:])
 	}
 
 	return
 }
 
-func (vs *Values) addAnonymousTo(s Slice) {
-	for i, v := range vs.Anonymous {
-		s[i] = v
+func (s *Sorter) addAnonymousTo(sl Slice) {
+	for i, v := range s.Anonymous {
+		sl[i] = v
 	}
 }
 
-func (vs *Values) addNamedTo(s Slice, names []string) {
+func (s *Sorter) addNamedTo(sl Slice, names []string) {
 	for i, name := range names {
-		s[i] = vs.NamedSlice[vs.Named[name]]
+		sl[i] = s.NamedSlice[s.Named[name]]
 	}
 }
