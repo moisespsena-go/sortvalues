@@ -95,7 +95,7 @@ func NewValues(duplicationType ...DuplicationType) *Values {
 	return &Values{DuplicationType: duplicationType[0], Named: map[string]int{}}
 }
 
-func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) *Values {
+func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) error {
 	for _, v := range v {
 		if v.Name == "" {
 			vs.Anonymous = append(vs.Anonymous, v)
@@ -104,20 +104,20 @@ func (vs *Values) AppendOption(dt DuplicationType, v ...*Value) *Values {
 			case DUPLICATION_OVERRIDE:
 				vs.NamedSlice[i] = v
 			case DUPLICATION_ABORT:
-				panic(&ErrDuplicate{v})
+				return &ErrDuplicate{v}
 			case DUPLICATION_SKIP:
 			default:
-				panic(fmt.Errorf("Invalid duplication type %d", dt))
+				return fmt.Errorf("Invalid duplication type %d", dt)
 			}
 		} else {
 			vs.Named[v.Name] = len(vs.NamedSlice)
 			vs.NamedSlice = append(vs.NamedSlice, v)
 		}
 	}
-	return vs
+	return nil
 }
 
-func (vs *Values) Append(v ...*Value) *Values {
+func (vs *Values) Append(v ...*Value) error {
 	return vs.AppendOption(vs.DuplicationType, v...)
 }
 

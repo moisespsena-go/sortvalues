@@ -27,7 +27,7 @@ func main() {
 	//                   or sortvalues.DUPLICATION_OVERRIDE
 	//                   or sortvalues.DUPLICATION_SKIP
 
-	vs.Append(
+	err := vs.Append(
 		sortvalues.NewValue("anonymou"),
 		sortvalues.NewValue("a", "A"),
 		sortvalues.NewValue("b", "B"),
@@ -36,14 +36,24 @@ func main() {
 			After("B"),
 		sortvalues.NewValue("d", "D"),
 	)
+	if err != nil {
+		fmt.Println("failed to add values: %v", err)
+		return
+	}
+
 	sorted, err := vs.Sort()
-	fmt.Println(err, sorted.Values())
+	if err != nil {
+		fmt.Println("sort failed: %v", err)
+		return
+	}
+
+	fmt.Println(sorted.Values())
 }
 ```
 
 Output:
 
-    <nil> [b c d a anonymou]
+    [b c d a anonymou]
     
 
 
