@@ -7,7 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/moisespsena/go-topsort"
+	"github.com/moisespsena-go/topsort"
 )
 
 const (
